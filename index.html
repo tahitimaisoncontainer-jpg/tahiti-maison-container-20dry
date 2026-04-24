@@ -601,7 +601,15 @@ function updateTotal(){
   const del=(val==='autres'||val==='0')?0:parseInt(val||'0',10);
   const isPap=del===0&&val!=='autres';
   let base;
-  if(isPap){base=c.BASE*qty;}
+  if(isPap){
+    base=c.BASE*qty;
+    // Pour organisme public Papeete, ajouter frais de gestion
+    if(clientType==='public'){
+      const ht_pap = c.CONTENEUR_HT*qty + c.COUT_OP_HT*qty;
+      const fht = Math.round(ht_pap*0.15);
+      base = c.BASE*qty + fht + Math.round(fht*c.TVA_RATE);
+    }
+  }
   else{
     const dhu=Math.round(del/(1+c.TVA_RATE)),dh=dhu*qty,oh=c.COUT_OP_HT*qty;
     const tv=Math.round((dh+oh)*c.TVA_RATE);
@@ -1461,8 +1469,19 @@ function collectData40(){
     rows_html += `<tr style="background:#f8fafc;"><td style="${B}"><strong>Livraison — Papeete</strong></td><td style="${BC}">${qtyNum}</td><td style="${BR}">0</td><td style="${BTV}">—</td><td style="${BR}color:#6fcb7d;">GRATUITE</td></tr>`;
     rows_html += `<tr style="background:#fff;"><td style="${B}"><strong>Coût opérationnel</strong></td><td style="${BC}">${qtyNum}</td><td style="${BR}">${n(COUT_OP_HT)} XPF</td><td style="${BTV}">13%</td><td style="${BR}">${n(op_ht_p)} XPF</td></tr>`;
     total_tva_val = op_tva_p; sous_ht_val = cont_ht_p + op_ht_p;
-    detail_html = `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;"><tr><td width="38%"></td><td width="62%"><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;"><tr style="background:#1a1e28;"><td style="padding:8px 12px;font-size:8px;color:#fff;text-transform:uppercase;letter-spacing:1px;font-weight:700;font-family:Arial,sans-serif;">Détail TVA</td><td style="padding:8px 12px;font-size:8px;color:#fff;text-transform:uppercase;letter-spacing:1px;font-weight:700;text-align:right;font-family:Arial,sans-serif;">Montant (XPF)</td></tr><tr style="background:#f8fafc;"><td style="${BM}">Total TVA 13%</td><td style="${BMR}">${n(op_tva_p)} XPF</td></tr><tr style="background:#fff;"><td style="${BM}">Sous-total HT</td><td style="${BMR}">${n(cont_ht_p+op_ht_p)} XPF</td></tr><tr style="background:#e56535;"><td style="padding:12px;font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif;">TOTAL TTC</td><td style="padding:12px;text-align:right;font-size:16px;font-weight:900;color:#fff;font-family:Arial,sans-serif;">${n(BASE*qtyNum)} XPF</td></tr></table></td></tr></table>`;
-    total_ttc_val = BASE * qtyNum;
+
+    // Frais de gestion organisme public Papeete
+    let frais_ht_p=0, frais_tva_p=0;
+    if(isPublic){
+      frais_ht_p  = Math.round(sous_ht_val*0.15);
+      frais_tva_p = Math.round(frais_ht_p*TVA_RATE);
+      total_tva_val += frais_tva_p;
+      sous_ht_val   += frais_ht_p;
+      rows_html += `<tr style="background:#fff7f3;"><td style="${B}color:#c05a20;"><strong>Frais de gestion, financement et mobilisation</strong><br><span style="font-size:9px;color:#d4784a;">Commande publique (paiement différé)</span></td><td style="padding:10px 11px;border-bottom:1px solid #fde8d8;text-align:center;font-weight:900;color:#e56535;font-size:13px;font-family:Arial,sans-serif;">1</td><td style="padding:10px 11px;border-bottom:1px solid #fde8d8;text-align:right;font-weight:700;font-size:11px;color:#c05a20;font-family:Arial,sans-serif;">${n(frais_ht_p)} XPF</td><td style="padding:10px 11px;border-bottom:1px solid #fde8d8;text-align:center;font-size:11px;color:#c05a20;font-family:Arial,sans-serif;">13%</td><td style="padding:10px 11px;border-bottom:1px solid #fde8d8;text-align:right;font-weight:700;font-size:11px;color:#c05a20;font-family:Arial,sans-serif;">${n(frais_ht_p)} XPF HT</td></tr>`;
+    }
+    total_ttc_val = BASE * qtyNum + frais_ht_p + frais_tva_p;
+
+    detail_html = `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;"><tr><td width="38%"></td><td width="62%"><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;"><tr style="background:#1a1e28;"><td style="padding:8px 12px;font-size:8px;color:#fff;text-transform:uppercase;letter-spacing:1px;font-weight:700;font-family:Arial,sans-serif;">Détail TVA</td><td style="padding:8px 12px;font-size:8px;color:#fff;text-transform:uppercase;letter-spacing:1px;font-weight:700;text-align:right;font-family:Arial,sans-serif;">Montant (XPF)</td></tr><tr style="background:#f8fafc;"><td style="${BM}">Total TVA 13%</td><td style="${BMR}">${n(total_tva_val)} XPF</td></tr><tr style="background:#fff;"><td style="${BM}">Sous-total HT</td><td style="${BMR}">${n(sous_ht_val)} XPF</td></tr><tr style="background:#e56535;"><td style="padding:12px;font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif;">TOTAL TTC</td><td style="padding:12px;text-align:right;font-size:16px;font-weight:900;color:#fff;font-family:Arial,sans-serif;">${n(total_ttc_val)} XPF</td></tr></table></td></tr></table>`;
   } else {
     const del_ht_u   = Math.round(deliveryCost/(1+TVA_RATE));
     const del_ht_tot = del_ht_u * qtyNum;
