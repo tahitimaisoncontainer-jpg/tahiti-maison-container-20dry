@@ -488,6 +488,10 @@
     <div class="modal-footer">
       <button class="btn btn-primary" id="sendBtn" onclick="sendEmail()"><span id="sendBtnLabel">&#128231; Envoyer le devis + PDF</span></button>
       <button class="btn btn-secondary" onclick="closeModal()">Fermer</button>
+      <div id="fb-warning" style="display:none;width:100%;margin-top:.5rem;padding:.8rem 1rem;background:rgba(229,101,53,.12);border:1px solid rgba(229,101,53,.35);border-radius:12px;font-size:.8rem;color:#ff8f62;line-height:1.5;">
+        📱 <strong>Navigateur Facebook détecté</strong><br>
+        Le devis sera bien envoyé par email. Pour recevoir le PDF sur votre téléphone, ouvrez ce site dans <strong>Chrome</strong> ou <strong>Safari</strong> via les 3 points ⋯ en haut à droite.
+      </div>
     </div>
   </div>
 </div>
@@ -630,7 +634,13 @@ function submitForm(){
   if(!nom||!email){showToast('Merci de renseigner au minimum votre nom et votre email.',true);return;}
   currentData=collectData(); buildModal(currentData); openModal();
 }
-function openModal(){document.getElementById('modalOverlay').classList.add('open');document.body.style.overflow='hidden';}
+function openModal(){
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  // Avertissement navigateur Facebook
+  const fbw = document.getElementById('fb-warning');
+  if(fbw) fbw.style.display = isFacebookBrowser() ? 'block' : 'none';
+}
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open');document.body.style.overflow='';}
 function closeModalOutside(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
@@ -640,25 +650,30 @@ function sendEmail(){
   lb.innerHTML='<span class="spinner"></span>Envoi en cours...';sb.style.opacity='0.7';sb.style.pointerEvents='none';
   emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,currentData).then(()=>{
     lb.textContent='✓ Envoyé avec succès !';sb.style.background='linear-gradient(135deg,#3daf5c,#6fcb7d)';
-    showToast('✓ Votre devis a bien été envoyé. Réponse sous 24 h.');
     devisCounter++;
-    // Téléchargement automatique du PDF après envoi réussi
+    // Téléchargement PDF selon le navigateur
     setTimeout(()=>{
-      const doc = generatePDF(currentData);
-      const filename = 'Devis-'+currentData.devis_num+'.pdf';
-      if(isMobile()){
-        const blob = doc.output('blob');
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href=url; a.target='_blank'; a.download=filename;
-        document.body.appendChild(a); a.click();
-        setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },3000);
+      if(isFacebookBrowser()){
+        // Facebook : afficher message après envoi réussi
+        showToast('✓ Devis envoyé par email ! Pour télécharger le PDF, ouvrez ce site dans Chrome ou Safari.');
       } else {
-        doc.save(filename);
+        const doc = generatePDF(currentData);
+        const filename = 'Devis-'+currentData.devis_num+'.pdf';
+        if(isMobile()){
+          const blob = doc.output('blob');
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement('a');
+          a.href=url; a.target='_blank'; a.download=filename;
+          document.body.appendChild(a); a.click();
+          setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },3000);
+        } else {
+          doc.save(filename);
+        }
+        showToast('✓ Devis envoyé et PDF téléchargé ! Réponse sous 24 h.');
       }
     }, 800);
-    setTimeout(()=>{closeModal();lb.innerHTML='&#128231; Envoyer le devis';sb.style.background='';sb.style.opacity='';sb.style.pointerEvents='';},2500);
-  }).catch(err=>{console.error(err);lb.innerHTML='&#128231; Envoyer le devis';sb.style.opacity='';sb.style.pointerEvents='';showToast('⚠️ Erreur envoi. Téléchargez le PDF manuellement.',true);});
+    setTimeout(()=>{closeModal();lb.innerHTML='&#128231; Envoyer le devis + PDF';sb.style.background='';sb.style.opacity='';sb.style.pointerEvents='';},2500);
+  }).catch(err=>{console.error(err);lb.innerHTML='&#128231; Envoyer le devis + PDF';sb.style.opacity='';sb.style.pointerEvents='';showToast('⚠️ Erreur envoi. Réessayez depuis Chrome ou Safari.',true);});
 }
 function isFacebookBrowser(){
   const ua = navigator.userAgent || '';
